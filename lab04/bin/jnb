@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# shellcheck source=bin/_bg.sh
+source /workspace/bin/_bg.sh
+# shellcheck source=docker/sage_env.sh
+source /workspace/docker/sage_env.sh
+
+NAME=jupyter
+PIDFILE=/workspace/build/run/jupyter.pid
+LOGFILE=/workspace/build/logs/jupyter.log
+NOTEBOOK_DIR="${JUPYTER_NOTEBOOK_DIR:-/workspace/notebooks}"
+HOST_PORT="${JUPYTER_PORT:-8888}"
+URL="http://127.0.0.1:${HOST_PORT}/"
+
+if [[ ! -x "${SAGE_JUPYTER}" ]]; then
+  echo "Brak Jupyter w Sage (${SAGE_JUPYTER}). Obraz musi być oparty o sagemath/sagemath." >&2
+  exit 1
+fi
+
+cmd="${1:-start}"
+case "$cmd" in
+  start)
+    ensure_sage_jupyter_kernel
+    bg_start "$NAME" "$PIDFILE" "$LOGFILE" \
+      "${SAGE_JUPYTER}" lab \
+      --ip=0.0.0.0 \
+      --port=8888 \
+      --no-browser \
+      --allow-root \
+      --ServerApp.token='' \
+      --ServerApp.password='' \
+      --ServerApp.disable_check_xsrf=True \
+      --ServerApp.allow_origin='*' \
+      --notebook-dir="$NOTEBOOK_DIR"
+    echo "Jupyter Lab (SageMath): ${URL}"
+    echo "Jądro notebooka: SageMath 10.8 (${SAGE_KERNEL_NAME})"
+    ;;
+  stop)
+    bg_stop "$NAME" "$PIDFILE"
+    ;;
+  status)
+    bg_status "$NAME" "$PIDFILE"
+    ;;
+  logs)
+    bg_logs "$LOGFILE"
+    ;;
+  *)
+    echo "Użycie: jnb [start|stop|status|logs]" >&2
+    exit 1
+    ;;
+esac
